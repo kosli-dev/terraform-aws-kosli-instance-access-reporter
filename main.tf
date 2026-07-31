@@ -4,7 +4,7 @@
 
 module "exec_session_reporter" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "8.1.0"
+  version = "8.8.0"
 
   function_name = local.exec_session_reporter_name
   description   = "Reports an ECS exec session to Kosli when CloudTrail sees ExecuteCommand"
@@ -43,7 +43,7 @@ module "exec_session_reporter" {
 
 module "transcript_reporter" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "8.1.0"
+  version = "8.8.0"
 
   function_name = local.transcript_reporter_name
   description   = "Attaches an ECS exec transcript to its Kosli trail when one lands in S3"
