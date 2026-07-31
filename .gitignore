@@ -1,0 +1,21 @@
+builds/*
+*.zip
+
+# Terraform
+**/.terraform/*
+.terraform.*
+*.tfstate
+*.tfstate.*
+*plan.json
+**/.terraform.lock.hcl
+
+# Python
+__pycache__/
+*.py[cod]
+.Python
+env/
+venv/
+ENV/
+.venv/
+.pytest_cache/
+.coverage
