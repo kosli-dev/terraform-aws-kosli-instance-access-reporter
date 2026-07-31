@@ -23,7 +23,13 @@ module "exec_session_reporter" {
   timeout     = var.exec_session_reporter_timeout_seconds
   memory_size = 256
 
-  maximum_retry_attempts = var.lambda_retry_attempts
+  # maximum_retry_attempts is only honoured when the async event config is
+  # created; without this the setting is silently ignored. EventBridge invokes
+  # the unqualified function, so only that qualifier needs a config - a
+  # per-version one would be replaced on every publish for no benefit.
+  create_async_event_config                 = true
+  create_current_version_async_event_config = false
+  maximum_retry_attempts                    = var.lambda_retry_attempts
 
   environment_variables = local.common_environment_variables
 
@@ -62,7 +68,13 @@ module "transcript_reporter" {
   timeout     = var.transcript_reporter_timeout_seconds
   memory_size = var.transcript_reporter_memory_size
 
-  maximum_retry_attempts = var.lambda_retry_attempts
+  # maximum_retry_attempts is only honoured when the async event config is
+  # created; without this the setting is silently ignored. EventBridge invokes
+  # the unqualified function, so only that qualifier needs a config - a
+  # per-version one would be replaced on every publish for no benefit.
+  create_async_event_config                 = true
+  create_current_version_async_event_config = false
+  maximum_retry_attempts                    = var.lambda_retry_attempts
 
   environment_variables = local.common_environment_variables
 
