@@ -23,7 +23,7 @@ _REASON_REGION = re.compile(
     r"Access\s+reason\s+X{2,}\s*;(?P<body>.*?)echo\s+User:", re.DOTALL
 )
 _LEADING_ECHO = re.compile(r"^echo\s+")
-_OPERATOR_LOGIN = re.compile(r"echo\s+User:\s*(?P<login>\S+)")
+_OPERATOR_LOGIN = re.compile(r"echo\s+User:\s*(?P<login>[^;\s]+)")
 #: Used only to tell "wrapper bypassed" apart from "wrapper output changed".
 _WRAPPER_HINT = re.compile(r"Access\s+reason", re.IGNORECASE)
 
