@@ -140,10 +140,16 @@ appear: an account is added, nobody remembers the extra deployment, and the gap 
 same reason this module has no enable flag defaulting to `false`.
 
 **Every region where a session can happen needs its own deployment.** CloudTrail management events
-are regional, and the exec logs bucket is per-account-per-region, so DR regions need the module too.
+are regional, and the exec logs bucket is per-account-per-region, so a region with no reporter in it
+captures nothing.
 
-**Apply the primary region before the DR region** for a new account, if the API token secret uses a
-`replica` block: the replica has its own regional ARN and the DR workspace has to look it up.
+Note the emphasis: *where a session can happen*. A standby region holding only replicated backups
+has no clusters and no containers, so there is nothing to capture there and nothing to deploy. If
+that region is built out later, the reporter arrives with it — provided it is called from a root
+module that region already runs, which is the same argument as above.
+
+**Apply the primary region before the secondary** when the API token secret uses a `replica` block:
+the replica has its own regional ARN, and a separate workspace has to look it up.
 
 ## Requirements
 
