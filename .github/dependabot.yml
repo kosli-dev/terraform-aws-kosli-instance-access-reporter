@@ -7,8 +7,6 @@ updates:
       interval: "weekly"
       day: "tuesday"
       time: "11:00"
-    commit-message:
-      prefix: 'chore(deps)'
     groups:
       github-actions-dependencies:
         patterns:
@@ -27,8 +25,6 @@ updates:
       interval: "weekly"
       day: "tuesday"
       time: "11:00"
-    commit-message:
-      prefix: 'chore(deps)'
     labels:
       - "dependencies"
       - "terraform"
