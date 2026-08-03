@@ -15,6 +15,11 @@ module "exec_session_reporter" {
   publish        = true
   source_path    = local.lambda_source_path
 
+  # Both lambdas package the same source, so without this they hash to the same
+  # builds/<hash>.zip and race each other building it - one renames the shared
+  # .tmp into place while the other is still writing it, and that apply fails.
+  hash_extra = local.exec_session_reporter_name
+
   layers = [local.kosli_cli_layer_arn]
 
   create_role = false
@@ -59,6 +64,9 @@ module "transcript_reporter" {
   create_package = true
   publish        = true
   source_path    = local.lambda_source_path
+
+  # See exec_session_reporter above - the two packages must hash differently.
+  hash_extra = local.transcript_reporter_name
 
   layers = [local.kosli_cli_layer_arn]
 
