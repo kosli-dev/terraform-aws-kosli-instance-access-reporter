@@ -9,7 +9,7 @@ module "exec_session_reporter" {
   function_name = local.exec_session_reporter_name
   description   = "Reports an ECS exec session to Kosli when CloudTrail sees ExecuteCommand"
   handler       = "exec_session_reporter.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = "python3.14"
 
   create_package = true
   publish        = true
@@ -59,7 +59,7 @@ module "transcript_reporter" {
   function_name = local.transcript_reporter_name
   description   = "Attaches an ECS exec transcript to its Kosli trail when one lands in S3"
   handler       = "transcript_reporter.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = "python3.14"
 
   create_package = true
   publish        = true
