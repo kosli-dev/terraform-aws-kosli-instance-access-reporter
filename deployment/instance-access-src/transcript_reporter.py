@@ -15,8 +15,6 @@ import logging
 import os
 import re
 
-import boto3
-
 from kosli_access import cloudtrail, runtime, session as session_model
 from kosli_access import trail as trail_naming
 
@@ -26,23 +24,6 @@ logger.setLevel(logging.INFO)
 #: The exec log key is flat: <cluster>/<sessionId>.log, where the prefix is the
 #: cluster name and the object name is the session ID verbatim.
 _LOG_KEY = re.compile(r"^(?P<cluster>[^/]+)/(?P<session_id>[A-Za-z0-9_.:-]+)\.log$")
-
-_s3 = None
-_cloudtrail = None
-
-
-def _s3_client():
-    global _s3
-    if _s3 is None:
-        _s3 = boto3.client("s3")
-    return _s3
-
-
-def _cloudtrail_client():
-    global _cloudtrail
-    if _cloudtrail is None:
-        _cloudtrail = boto3.client("cloudtrail")
-    return _cloudtrail
 
 
 class MalformedKeyError(ValueError):
@@ -71,7 +52,7 @@ def lambda_handler(event, context):  # noqa: ARG001 - lambda signature
 
     record = cloudtrail.find_execute_command_event(
         session_id,
-        client=_cloudtrail_client(),
+        client=runtime.client("cloudtrail"),
         timeout=settings.identity_lookup_timeout,
     )
     session = session_model.from_cloudtrail_record(record)
@@ -85,7 +66,7 @@ def lambda_handler(event, context):  # noqa: ARG001 - lambda signature
     )
 
     local_path = os.path.join("/tmp", f"{session_id}.log")
-    _s3_client().download_file(bucket, key, local_path)
+    runtime.client("s3").download_file(bucket, key, local_path)
     size = os.path.getsize(local_path)
     logger.info("Downloaded %d bytes of transcript to %s", size, local_path)
 

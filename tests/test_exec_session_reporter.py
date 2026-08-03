@@ -3,10 +3,15 @@ from datetime import timedelta
 import pytest
 
 import exec_session_reporter
-from kosli_access import runtime
+from kosli_access import runtime, session as session_model
 from kosli_access.config import Settings
 
-from .fakes import REAL_COMMAND, FakeKosliClient, execute_command_record
+from .fakes import (
+    REAL_COMMAND,
+    FakeKosliClient,
+    execute_command_record,
+    fake_boto3_clients,
+)
 
 SETTINGS = Settings(
     kosli_binary="/opt/kosli",
@@ -37,17 +42,19 @@ def kosli(monkeypatch):
     monkeypatch.setattr(runtime, "settings", lambda: SETTINGS)
     monkeypatch.setattr(runtime, "kosli_client", lambda: client)
     monkeypatch.setattr(
-        exec_session_reporter,
-        "_ecs",
-        FakeEcs(
-            [
-                {
-                    "group": "service:app",
-                    "taskDefinitionArn": "arn:aws:ecs:eu-central-1:1:task-definition/app:7",
-                    "launchType": "FARGATE",
-                    "containers": [{"name": "app", "image": "app:1.2.3"}],
-                }
-            ]
+        runtime,
+        "client",
+        fake_boto3_clients(
+            ecs=FakeEcs(
+                [
+                    {
+                        "group": "service:app",
+                        "taskDefinitionArn": "arn:aws:ecs:eu-central-1:1:task-definition/app:7",
+                        "launchType": "FARGATE",
+                        "containers": [{"name": "app", "image": "app:1.2.3"}],
+                    }
+                ]
+            )
         ),
     )
     return client
@@ -57,7 +64,51 @@ def invoke(record):
     return exec_session_reporter.lambda_handler({"detail": record}, None)
 
 
-def test_a_successful_session_produces_the_four_phase_1_attestations(kosli):
+def planned(record, service_identity=None):
+    session = session_model.from_cloudtrail_record(record)
+    return [
+        attestation.name
+        for attestation in exec_session_reporter.planned_attestations(
+            session, service_identity
+        )
+    ]
+
+
+def test_what_a_session_produces_can_be_read_without_reporting_it():
+    # This module's docstring, the README's table and planned_attestations are
+    # the same list. This is what keeps them so.
+    assert planned(
+        execute_command_record(command=REAL_COMMAND), {"cluster": "infra-dev"}
+    ) == [
+        "user-identity",
+        "access-reason",
+        "access-command",
+        "service-identity",
+    ]
+
+
+def test_a_denied_attempt_swaps_service_identity_for_access_denied():
+    assert planned(
+        execute_command_record(command=REAL_COMMAND, error_code="AccessDeniedException")
+    ) == [
+        "user-identity",
+        "access-reason",
+        "access-command",
+        "access-denied",
+    ]
+
+
+def test_a_failed_task_lookup_drops_only_its_own_attestation():
+    # No service identity means the ECS call failed, and that failure is already
+    # recorded, so there is nothing left to attest for it.
+    assert planned(execute_command_record(command=REAL_COMMAND)) == [
+        "user-identity",
+        "access-reason",
+        "access-command",
+    ]
+
+
+def test_a_successful_session_produces_the_four_session_attestations(kosli):
     result = invoke(execute_command_record(command=REAL_COMMAND))
 
     assert result["trail"] == "graham-2026-07-31-1225"
@@ -135,7 +186,9 @@ def test_a_second_session_in_the_window_joins_the_first_trail(kosli):
 def test_a_task_that_has_gone_away_does_not_lose_the_rest_of_the_evidence(
     kosli, monkeypatch
 ):
-    monkeypatch.setattr(exec_session_reporter, "_ecs", FakeEcs(tasks=None))
+    monkeypatch.setattr(
+        runtime, "client", fake_boto3_clients(ecs=FakeEcs(tasks=None))
+    )
 
     invoke(execute_command_record(command=REAL_COMMAND))
 

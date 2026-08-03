@@ -36,6 +36,20 @@ resource "aws_s3_bucket" "ecs_exec_logs" {
   bucket = "ecs-exec-logs-${data.aws_caller_identity.current.account_id}-${local.region}"
 }
 
+# Without this the bucket would be SSE-S3 and the key above would be decorative.
+# It is what makes ecs_exec_logs_kms_key_arn meaningful: reading a transcript
+# then needs kms:Decrypt as well as s3:GetObject, and the module grants both.
+resource "aws_s3_bucket_server_side_encryption_configuration" "ecs_exec_logs" {
+  bucket = aws_s3_bucket.ecs_exec_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.ecs_exec_logs.arn
+    }
+  }
+}
+
 # Both source buckets in Kosli already set this, which is what lets a second
 # pipeline subscribe to the same events without modifying the first.
 resource "aws_s3_bucket_notification" "ecs_exec_logs" {
@@ -47,7 +61,7 @@ module "instance_access_reporter" {
   source = "../.."
 
   kosli_org       = "kosli"
-  kosli_flow_name = "infra-dev-instance-access"
+  kosli_flow_name = "instance-access-infra-dev"
 
   kosli_api_token_secret_arn = aws_secretsmanager_secret.kosli_api_token_instance_access.arn
 

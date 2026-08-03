@@ -11,7 +11,7 @@ variable "kosli_org" {
 
 variable "kosli_flow_name" {
   type        = string
-  description = "The Kosli flow that holds this instance's access trails, for example prod-instance-access. Created in terraform-kosli-app, not here."
+  description = "The Kosli flow that holds this instance's access trails, for example instance-access-prod. Created in terraform-kosli-app, not here."
 }
 
 variable "kosli_host" {

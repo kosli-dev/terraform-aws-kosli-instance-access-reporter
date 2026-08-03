@@ -7,7 +7,7 @@ from kosli_access import session as session_model
 from .fakes import REAL_COMMAND, execute_command_record
 
 
-def test_a_successful_call_yields_everything_phase_1_needs():
+def test_a_successful_call_yields_everything_the_session_reporters_need():
     session = session_model.from_cloudtrail_record(
         execute_command_record(command=REAL_COMMAND)
     )

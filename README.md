@@ -4,9 +4,30 @@ Records interactive access to a Kosli instance as audit evidence on a
 [Kosli](https://www.kosli.com) trail: **who** opened a shell, **on which instance**, **why**,
 **when**, and **what they typed**.
 
-> **Pre-release.** This module is being built and proven in Kosli's own lower environments. There
-> are no tagged releases yet and the interface will break without notice. Pin a git SHA if you
-> depend on it in the meantime.
+> **`v0.1.0` — the first tagged release.** The interface is not stable while this is `0.x`: a minor
+> version may change or remove an input. Pin a tag rather than a branch, and read
+> [Upgrading](#upgrading) before moving between versions.
+
+## Two modules
+
+- **The root of this repository** — deploy into each account running ECS workloads. Records the
+  session: who opened a shell, where, why, and what they typed.
+- **[`modules/elevation-reporter`](modules/elevation-reporter)** — deploy into the account running
+  AWS SSO. Records the privilege elevation the session was made under, and who approved it.
+
+**The root module is complete on its own.** It needs no elevation step to exist and does not wait
+for one, so if you have no privilege-elevation workflow — or only want the session evidence —
+deploy it alone and ignore the second module entirely.
+
+Add the elevation reporter when access to your production accounts is granted through an approval
+workflow and you want the approval on the same trail as the session it authorised. Both write to the
+same trail by computing its name the same way, which is why they share a repository rather than
+merely a convention.
+
+There is a third directory, [`modules/reporter-lambda`](modules/reporter-lambda), which is internal.
+Every reporter in this repository is that module with a different handler, trigger and IAM policy,
+so it is where the package, the CLI layer, the runtime and the retry behaviour are declared once.
+Do not call it directly.
 
 ## What "instance access" means here
 
@@ -26,7 +47,7 @@ One Kosli flow per instance, and one trail per piece of work. A trail is named
 | Attestation | Trigger | What it holds |
 | --- | --- | --- |
 | `user-identity` | exec | Raw CloudTrail `userIdentity`: Identity Center email, `onBehalfOf` ID |
-| `access-reason` | exec | The reason given to the wrapper script, extracted for an auditor |
+| `access-reason` | exec | The reason given to the wrapper script |
 | `access-command` | exec | The raw `requestParameters.command`, kept as the primary evidence |
 | `service-identity` | exec | The ECS task, service and image the shell was opened in |
 | `access-denied` | exec | Only when the call was refused; carries the error code |
@@ -35,13 +56,11 @@ One Kosli flow per instance, and one trail per piece of work. A trail is named
 `access-reason` is marked non-compliant when no reason was supplied, and `access-denied` is always
 non-compliant. The extracted reason is *derived* from `access-command`, never a replacement for it.
 
-The transcript is *attached*, not referenced. Kosli is intended to be the definitive record — the
-thing an auditor is shown — and a trail that merely points at an S3 object stops being evidence the
-moment that object ages out.
+The transcript is *attached*, not referenced. Kosli is intended to be the definitive record.
 
 ## How it works
 
-Two lambdas, two EventBridge rules, no shared state and no database.
+The root module deploys two lambdas and two EventBridge rules, with no shared state and no database.
 
 ```
 CloudTrail ExecuteCommand ──▶ exec_session_reporter ──▶ find or begin trail ──▶ 4 attestations
@@ -74,30 +93,14 @@ session start is within `trail_window_hours` of *this* session's start, and begi
 if there is none. Two unrelated accesses in one day fall outside each other's window and get
 separate trails automatically, and a window is not a calendar date, so 23:59 and 00:10 match.
 
-The match is on the timestamp in the trail *name*, never on Kosli's `created_at`. `created_at` is
-when Kosli first saw a write for the trail, which can be hours after the session started if the
-transcript path wins the race. The name carries the true session start.
-
-### The access reason needs no change to the wrapper script
-
-Kosli's `enter_aws.sh -r "<reason>"` bakes the reason into the ECS command string, which lands
-verbatim in the CloudTrail event as `requestParameters.command`. The reporter extracts it from
-there. No second reporting path, no script modification, and it works in the lower environments
-where there is no elevation step.
-
-A missing reason is itself flagged on the trail. Calling `aws ecs execute-command` directly, without
-the wrapper, produces an `access-reason` attestation that says so explicitly and is marked
-non-compliant — omitting the attestation would look like a reporting failure, which says something
-quite different to an auditor.
-
 ## Usage
 
 ```hcl
 module "instance_access_reporter" {
-  source = "github.com/kosli-dev/terraform-aws-kosli-instance-access-reporter?ref=<sha>"
+  source = "github.com/kosli-dev/terraform-aws-kosli-instance-access-reporter?ref=v0.1.0"
 
   kosli_org       = "kosli"
-  kosli_flow_name = "prod-instance-access"
+  kosli_flow_name = "instance-access-prod"
 
   kosli_api_token_secret_arn = aws_secretsmanager_secret.kosli_api_token_instance_access.arn
 
@@ -113,6 +116,26 @@ module "instance_access_reporter" {
 See [`examples/instance-account`](examples/instance-account) for a runnable version with its
 prerequisites.
 
+## Upgrading
+
+**Pin a tag, and apply every tag you pass through.** Some releases carry `moved` blocks that rewrite
+resource addresses in Terraform state, and a `moved` block only does its work in the release that
+contains it. Skipping a release that has one means the next apply destroys and recreates whatever it
+would have moved.
+
+**Reaching `v0.1.0` from an untagged branch or SHA ref.** The reporters moved inside an internal
+`reporter-lambda` module, so their addresses in state all changed. `v0.1.0` carries the `moved`
+blocks that account for that, and an existing workspace applies without destroying a lambda, a role,
+a log group or an alarm. Those blocks will be removed in a later release, so apply `v0.1.0` before
+moving past it.
+
+One replacement in that upgrade is unavoidable: each reporter's IAM policy description changed, and
+an IAM policy description is immutable, so the policy is replaced rather than updated and is briefly
+detached from its role. A reporter invoked in that window fails for want of permissions — loudly,
+via its alarm, rather than silently. Apply it at a quiet moment, and re-run the apply if IAM's
+eventual consistency rejects the create; the half-applied state is a role with no policy attached,
+which the second apply completes.
+
 ## Prerequisites
 
 **ECS exec logging into an S3 bucket that emits EventBridge events.** Set
@@ -121,7 +144,7 @@ prerequisites.
 turning this on does not disturb anything else already subscribed to the same bucket.
 
 **A Kosli flow.** The reporter begins trails in `kosli_flow_name`; it does not create the flow. At
-Kosli these are declared in `terraform-kosli-app`, one per instance.
+Kosli these are declared in the private `terraform-kosli-app` repo, one per instance.
 
 **A Secrets Manager secret holding a Kosli API token.** Pass the ARN as a *resource* reference, not
 a data source lookup. A data source is read at plan time, so a brand new account could not create
@@ -162,6 +185,11 @@ the replica has its own regional ARN, and a separate workspace has to look it up
 The Kosli CLI is attached as a lambda layer, resolved for the requested version and the current
 region. A combination with no published layer fails at plan, not at runtime.
 
+The lambdas run on **Python 3.14**, which is not freely changeable: the CLI layer declares the
+runtimes it is compatible with, and Lambda rejects a function that asks for one outside that list.
+If you pin a different `kosli_cli_version`, check its layer before changing the runtime — the
+mismatch appears as an `InvalidParameterValueException` at apply rather than at plan.
+
 ## Inputs
 
 | Name | Description | Default |
@@ -196,14 +224,6 @@ region. A combination with no published layer fails at plan, not at runtime.
 `transcript_reporter_function_arn`, `transcript_reporter_role_arn`, `event_rule_arns`,
 `kosli_cli_layer_arn`.
 
-## Not built yet
-
-- **Elevation context.** A second module, for the account running the privilege elevator, attesting
-  the elevation reason and the approver alongside the session reason recorded here. It will live in
-  this repository so that it shares the trail-naming implementation rather than reimplementing it.
-- **A reconciliation sweep.** A scheduled job asserting that every session `ssm describe-sessions`
-  knows about has a trail, and that every account in the organisation has a reporter deployed.
-
 ## Development
 
 ```console
@@ -213,12 +233,20 @@ python -m pytest
 terraform fmt -check -recursive
 ```
 
-The lambda code lives in `deployment/`:
+The tests run on the same Python version as the lambda runtime.
+
+The lambda code lives in `deployment/`, and is shared by both modules — the elevation reporter
+packages these same files rather than a copy of them:
 
 - `deployment/kosli_access/` — the shared library. Trail naming, the rendezvous window, the reason
-  parser, the CloudTrail lookup and the Kosli CLI wrapper. Every lambda in this repository uses it,
-  so that no two of them can drift apart on how a trail is named.
-- `deployment/instance-access-src/` — the two handlers.
+  parser, the elevator audit entry model, the CloudTrail lookup and the Kosli CLI wrapper. Every
+  lambda in this repository uses it, so that no two of them can drift apart on how a trail is named.
+- `deployment/instance-access-src/` — the three handlers: `exec_session_reporter` and
+  `transcript_reporter` for the root module, `elevation_reporter` for the elevation reporter.
+
+Only `modules/reporter-lambda` names those two directories in a `source_path`, which is what makes
+"every reporter ships the same code" an assertion rather than a convention: there is one place a
+copy of the library can be named, so no reporter can be pointed at a different one.
 
 ## Licence
 

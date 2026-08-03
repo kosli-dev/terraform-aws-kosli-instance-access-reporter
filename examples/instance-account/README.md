@@ -11,7 +11,7 @@ new.
 
 Two things this example cannot show, because they live outside the AWS account:
 
-- **The flow must exist first.** `infra-dev-instance-access` is declared in
+- **The flow must exist first.** `instance-access-infra-dev` is declared in
   `terraform-kosli-app`, once per Kosli instance. The reporter begins trails in
   that flow; it does not create it.
 - **The secret must be populated.** Terraform creates the container with no
@@ -27,3 +27,9 @@ terraform plan
 
 Note that this example creates real resources, including two Lambda functions.
 Run `terraform destroy` when you are finished with it.
+
+This is the whole of the reporter for an account with no privilege-elevation
+step. If access to the account is granted through an approval workflow, the
+approval is captured by a separate module deployed into the account running AWS
+SSO — see [`modules/elevation-reporter`](../../modules/elevation-reporter).
+There is no example for it, because it is deployed once rather than per account.

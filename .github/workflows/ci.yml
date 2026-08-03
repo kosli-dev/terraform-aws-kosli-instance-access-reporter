@@ -39,10 +39,10 @@ jobs:
       - name: Check formatting
         run: terraform fmt -check -recursive
 
-      - name: Validate the module and every example
+      - name: Validate every module and example
         run: |
           set -euo pipefail
-          for dir in . examples/*/; do
+          for dir in . modules/*/ examples/*/; do
             echo "::group::validate ${dir}"
             terraform -chdir="${dir}" init -backend=false -input=false
             terraform -chdir="${dir}" validate
