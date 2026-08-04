@@ -27,7 +27,7 @@ resource "aws_cloudwatch_event_rule" "ecs_execute_command" {
 resource "aws_cloudwatch_event_target" "ecs_execute_command" {
   rule      = aws_cloudwatch_event_rule.ecs_execute_command.name
   target_id = local.exec_session_reporter_name
-  arn       = module.exec_session_reporter.lambda_function_arn
+  arn       = module.session.function_arn
 }
 
 resource "aws_cloudwatch_event_rule" "ecs_exec_transcript_uploaded" {
@@ -53,5 +53,5 @@ resource "aws_cloudwatch_event_rule" "ecs_exec_transcript_uploaded" {
 resource "aws_cloudwatch_event_target" "ecs_exec_transcript_uploaded" {
   rule      = aws_cloudwatch_event_rule.ecs_exec_transcript_uploaded.name
   target_id = local.transcript_reporter_name
-  arn       = module.transcript_reporter.lambda_function_arn
+  arn       = module.transcript.function_arn
 }

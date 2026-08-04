@@ -1,10 +1,12 @@
 """Trail naming and the rendezvous window.
 
-A trail is named ``<user>-<session-start-utc>``, for example
-``graham-2026-07-31-1234``. The timestamp in the *name* is the true session
-start, taken from the CloudTrail event. A trail's ``created_at`` is when Kosli
-first saw a write for it, which can be hours later if the transcript path wins
-the race — so the window search matches on the name, never on ``created_at``.
+A trail is named ``<user>-<start-utc>``, for example ``graham-2026-07-31-1234``.
+The timestamp in the *name* is when the work started: the CloudTrail event time
+for a session, or the elevation grant when the elevation reporter opens the
+trail first, which is the usual order once it is deployed. A trail's ``created_at``
+is when Kosli first saw a write for it, which can be hours later if the
+transcript path wins the race — so the window search matches on the name, never
+on ``created_at``.
 
 Several sessions inside one window share a trail: request access, open a shell,
 run a migration, exit, remember a second migration. That is one piece of work

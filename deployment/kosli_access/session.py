@@ -32,7 +32,7 @@ def parse_event_time(value):
 
 @dataclass(frozen=True)
 class ExecSession:
-    """Everything phase 1 needs, taken from the CloudTrail record alone."""
+    """Everything the session reporters need, from the CloudTrail record alone."""
 
     event_id: str
     event_time: datetime

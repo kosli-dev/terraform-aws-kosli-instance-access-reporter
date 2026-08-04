@@ -7,7 +7,7 @@ import pytest
 import transcript_reporter
 from kosli_access import cloudtrail, runtime
 
-from .fakes import FakeKosliClient, execute_command_record
+from .fakes import FakeKosliClient, execute_command_record, fake_boto3_clients
 from .test_exec_session_reporter import SETTINGS
 
 SESSION_ID = "ecs-execute-command-s9y89par6quf78pcbnoko32g28"
@@ -44,11 +44,13 @@ def kosli(monkeypatch):
     client = FakeKosliClient()
     monkeypatch.setattr(runtime, "settings", lambda: SETTINGS)
     monkeypatch.setattr(runtime, "kosli_client", lambda: client)
-    monkeypatch.setattr(transcript_reporter, "_s3", FakeS3())
     monkeypatch.setattr(
-        transcript_reporter,
-        "_cloudtrail",
-        FakeCloudTrail(execute_command_record(session_id=SESSION_ID)),
+        runtime,
+        "client",
+        fake_boto3_clients(
+            s3=FakeS3(),
+            cloudtrail=FakeCloudTrail(execute_command_record(session_id=SESSION_ID)),
+        ),
     )
     return client
 
@@ -101,11 +103,15 @@ def test_the_transcript_joins_the_trail_the_exec_event_created(kosli):
 def test_an_unattributable_transcript_fails_rather_than_being_attested(
     kosli, monkeypatch
 ):
-    # No identity means no defensible trail name. Failing here alarms, and the
-    # phase 3 reconciliation sweep is the backstop.
+    # No identity means no defensible trail name. Failing here alarms rather
+    # than attesting a transcript that cannot be attributed to anyone.
     impatient = dataclasses.replace(SETTINGS, identity_lookup_timeout=1.0)
     monkeypatch.setattr(runtime, "settings", lambda: impatient)
-    monkeypatch.setattr(transcript_reporter, "_cloudtrail", FakeCloudTrail(None))
+    monkeypatch.setattr(
+        runtime,
+        "client",
+        fake_boto3_clients(s3=FakeS3(), cloudtrail=FakeCloudTrail(None)),
+    )
 
     with pytest.raises(cloudtrail.IdentityNotFound):
         invoke()
