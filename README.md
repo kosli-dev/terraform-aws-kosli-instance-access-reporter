@@ -51,7 +51,7 @@ One Kosli flow per instance, and one trail per piece of work. A trail is named
 | `access-command` | exec | The raw `requestParameters.command`, kept as the primary evidence |
 | `service-identity` | exec | The ECS task, service and image the shell was opened in |
 | `access-denied` | exec | Only when the call was refused; carries the error code |
-| `command-logs` | transcript | The full terminal transcript, attached raw |
+| `terminal-session-log` | transcript | The full terminal transcript, attached raw |
 
 `access-reason` is marked non-compliant when no reason was supplied, and `access-denied` is always
 non-compliant. The extracted reason is *derived* from `access-command`, never a replacement for it.

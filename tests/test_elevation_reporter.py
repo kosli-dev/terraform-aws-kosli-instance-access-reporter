@@ -86,7 +86,8 @@ def test_the_whole_audit_entry_is_forwarded(kosli):
 
     report(GRANT_ENTRY, kosli)
 
-    user_data = client_for(PROD_FLOW).attestation("sso-session-data")["user_data"]
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
+    user_data = attestation["user_data"]
     # The old pipeline dropped exactly these, which are what tie the grant back
     # to the Slack conversation that approved it.
     assert user_data["audit_entry"] == GRANT_ENTRY
@@ -105,7 +106,7 @@ def test_the_approved_reason_is_readable_without_digging_into_the_blob(kosli):
 
     report(GRANT_ENTRY, kosli)
 
-    attestation = client_for(PROD_FLOW).attestation("sso-session-data")
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
     assert attestation["user_data"]["elevation_reason"] == (
         "Setup SCIM for Sunlife in prod, as part of their testing"
     )
@@ -120,7 +121,7 @@ def test_a_self_approved_grant_is_reported_non_compliant(kosli):
 
     report(dict(GRANT_ENTRY, approver_email="graham@kosli.com"), kosli)
 
-    attestation = client_for(PROD_FLOW).attestation("sso-session-data")
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
     assert attestation["compliant"] is False
     assert attestation["user_data"]["self_approved"] is True
 
@@ -135,7 +136,10 @@ def test_the_revoke_joins_the_trail_the_grant_opened(kosli):
     assert result["trail_created"] is False
     assert result["trail"] == "graham-2026-08-03-1238"
     assert len(client.begun) == 1
-    assert client.attestation_names() == ["sso-session-data", "sso-session-revoked"]
+    assert client.attestation_names() == [
+        "elevated-aws-permissions",
+        "elevated-aws-permissions-revoked",
+    ]
 
 
 def test_a_revoke_after_a_long_elevation_still_finds_its_trail(kosli):
@@ -163,7 +167,8 @@ def test_a_scheduled_revocation_is_not_reported_as_a_reason(kosli):
 
     report(REVOKE_ENTRY, kosli)
 
-    user_data = client_for(PROD_FLOW).attestation("sso-session-revoked")["user_data"]
+    client = client_for(PROD_FLOW)
+    user_data = client.attestation("elevated-aws-permissions-revoked")["user_data"]
     assert user_data["revocation_trigger"] == "scheduled_revocation"
     assert user_data["scheduled"] is True
     assert "elevation_reason" not in user_data

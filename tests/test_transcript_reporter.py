@@ -75,7 +75,7 @@ def test_the_transcript_is_attached_to_the_trail_for_that_session(kosli):
     result = invoke()
 
     assert result["trail"] == "graham-2026-07-31-1225"
-    attestation = kosli.attestation("command-logs")
+    attestation = kosli.attestation("terminal-session-log")
     assert attestation["attachments"] == [f"/tmp/{SESSION_ID}.log"]
     assert attestation["user_data"]["transcript_bytes"] == len(TRANSCRIPT)
     assert attestation["user_data"]["cluster"] == "infra-dev"

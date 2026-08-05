@@ -17,10 +17,10 @@ work belongs to.
 
 Triggered by an SSO Elevator audit entry landing in S3, via EventBridge:
 
-- `operation_type: grant` attests **`sso-session-data`** — the whole `AuditEntry`, plus the
+- `operation_type: grant` attests **`elevated-aws-permissions`** — the whole `AuditEntry`, plus the
   elevation reason and the approver lifted out where an auditor will read them.
-- `operation_type: revoke` attests **`sso-session-revoked`** — the whole `AuditEntry`, plus whether
-  the elevation expired on its own or was handed back.
+- `operation_type: revoke` attests **`elevated-aws-permissions-revoked`** — the whole `AuditEntry`,
+  plus whether the elevation expired on its own or was handed back.
 
 It runs *alongside* `session-saver` on the same bucket events rather than replacing it. The bucket
 already sets `eventbridge = true`, and EventBridge fans out, so nothing the old pipeline depends on

@@ -73,7 +73,7 @@ def lambda_handler(event, context):  # noqa: ARG001 - lambda signature
     try:
         client.attest_generic(
             trail=rendezvous.name,
-            name="command-logs",
+            name="terminal-session-log",
             description=f"Full terminal transcript of session {session_id}",
             attachments=[local_path],
             user_data={

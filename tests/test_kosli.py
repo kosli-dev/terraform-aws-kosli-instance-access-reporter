@@ -114,7 +114,7 @@ def test_attestations_can_be_reported_as_non_compliant_with_attachments():
 
     client(runner).attest_generic(
         trail="graham-2026-07-31-1234",
-        name="command-logs",
+        name="terminal-session-log",
         attachments=["/tmp/session.log"],
         compliant=False,
     )
