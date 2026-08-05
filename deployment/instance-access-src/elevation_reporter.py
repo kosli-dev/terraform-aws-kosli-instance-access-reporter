@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 
 #: The attestation names this reporter owns. The session reporters own
 #: user-identity, access-reason, access-command, service-identity and
-#: command-logs.
+#: terminal-session-log.
 GRANT_ATTESTATION = "elevated-aws-permissions"
 REVOKE_ATTESTATION = "elevated-aws-permissions-revoked"
 
