@@ -18,7 +18,11 @@ work belongs to.
 Triggered by an SSO Elevator audit entry landing in S3, via EventBridge:
 
 - `operation_type: grant` attests **`elevated-aws-permissions`** — the whole `AuditEntry`, plus the
-  elevation reason and the approver lifted out where an auditor will read them.
+  elevation reason and the approver lifted out where an auditor will read them. It is also annotated
+  `requester=<email>` and `approver=<email>`, so the two names an auditor looks for first are on the
+  attestation itself and not only inside the blob. A grant naming no approver is annotated
+  `approver=nobody recorded` rather than dropping the key, because that is the case most worth
+  noticing.
 - `operation_type: revoke` attests **`elevated-aws-permissions-revoked`** — the whole `AuditEntry`,
   plus whether the elevation expired on its own or was handed back.
 

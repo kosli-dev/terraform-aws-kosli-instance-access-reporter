@@ -31,6 +31,10 @@ logger.setLevel(logging.INFO)
 GRANT_ATTESTATION = "elevated-aws-permissions"
 REVOKE_ATTESTATION = "elevated-aws-permissions-revoked"
 
+#: What to say when the entry names no approver. Used by both the description
+#: and the annotations, so the two cannot end up wording it differently.
+NOBODY_RECORDED = "nobody recorded"
+
 
 def read_audit_entry(bucket, key, client=None):
     """Return the elevator's audit entry stored at ``bucket``/``key``.
@@ -77,6 +81,19 @@ def _grant_user_data(entry, bucket, key):
             "enter_aws.sh -r, and one elevation may cover several sessions "
             "with different reasons."
         ),
+    }
+
+
+def _grant_annotations(entry):
+    """The two names an auditor looks for first, lifted out of the blob.
+
+    The approver key is always present. A grant with nobody recorded against it
+    is the most interesting kind, so it says so in the same words as the
+    description rather than vanishing from the annotations.
+    """
+    return {
+        "requester": entry.requester_email,
+        "approver": entry.approver_email or NOBODY_RECORDED,
     }
 
 
@@ -159,13 +176,14 @@ def lambda_handler(event, context):  # noqa: ARG001 - lambda signature
             name=GRANT_ATTESTATION,
             description=(
                 f"Elevation to {entry.role_name} in {entry.account_id}, "
-                f"approved by {entry.approver_email or 'nobody recorded'}"
+                f"approved by {entry.approver_email or NOBODY_RECORDED}"
             ),
             # A grant that nobody else approved is still evidence, but it is
             # not the evidence we intend to produce: the elevator config sets
             # AllowSelfApproval false, so this should be unreachable.
             compliant=not entry.self_approved,
             user_data=_grant_user_data(entry, bucket, key),
+            annotations=_grant_annotations(entry),
         )
     else:
         client.attest_generic(

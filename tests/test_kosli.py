@@ -122,3 +122,29 @@ def test_attestations_can_be_reported_as_non_compliant_with_attachments():
     command = runner.calls[0]["command"]
     assert "--compliant=false" in command
     assert command[command.index("--attachments") + 1] == "/tmp/session.log"
+
+
+def test_annotations_become_repeated_key_value_flags():
+    runner = FakeRunner()
+
+    client(runner).attest_generic(
+        trail="graham-2026-07-31-1234",
+        name="elevated-aws-permissions",
+        annotations={"requester": "graham@kosli.com", "approver": "faye@kosli.com"},
+    )
+
+    command = runner.calls[0]["command"]
+    pairs = [command[i + 1] for i, arg in enumerate(command) if arg == "--annotate"]
+    assert pairs == ["requester=graham@kosli.com", "approver=faye@kosli.com"]
+
+
+def test_an_attestation_with_no_annotations_passes_no_flag_at_all():
+    runner = FakeRunner()
+
+    client(runner).attest_generic(
+        trail="graham-2026-07-31-1234",
+        name="access-reason",
+        user_data={"reason": "run the migration"},
+    )
+
+    assert "--annotate" not in runner.calls[0]["command"]

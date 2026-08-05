@@ -120,8 +120,20 @@ class KosliClient:
         attachments=None,
         compliant=True,
         description=None,
+        annotations=None,
     ):
-        """Report a generic attestation against ``trail``."""
+        """Report a generic attestation against ``trail``.
+
+        ``annotations`` is a mapping lifted onto the attestation as
+        ``--annotate key=value`` pairs, so the fields an auditor cares about are
+        visible in Kosli without opening the user data blob. Most attestations
+        have none, so it defaults to nothing.
+
+        Keep annotation values short and comma-free: the CLI flag is a
+        key=value map parsed as CSV, so a value containing a comma is split into
+        two malformed pairs rather than rejected. Prose belongs in the
+        description or the user data.
+        """
         args = [
             "attest",
             "generic",
@@ -137,6 +149,8 @@ class KosliClient:
             args += ["--description", description]
         for attachment in attachments or []:
             args += ["--attachments", attachment]
+        for key, value in (annotations or {}).items():
+            args += ["--annotate", f"{key}={value}"]
 
         if user_data is None:
             self._run(args)

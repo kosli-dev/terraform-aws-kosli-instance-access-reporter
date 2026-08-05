@@ -48,6 +48,7 @@ class FakeKosliClient:
         attachments=None,
         compliant=True,
         description=None,
+        annotations=None,
     ):
         self.attestations.append(
             {
@@ -57,6 +58,7 @@ class FakeKosliClient:
                 "attachments": list(attachments or []),
                 "compliant": compliant,
                 "description": description,
+                "annotations": dict(annotations or {}),
             }
         )
 
