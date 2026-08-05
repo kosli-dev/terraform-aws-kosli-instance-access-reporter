@@ -28,8 +28,8 @@ logger.setLevel(logging.INFO)
 #: The attestation names this reporter owns. The session reporters own
 #: user-identity, access-reason, access-command, service-identity and
 #: command-logs.
-GRANT_ATTESTATION = "sso-session-data"
-REVOKE_ATTESTATION = "sso-session-revoked"
+GRANT_ATTESTATION = "elevated-aws-permissions"
+REVOKE_ATTESTATION = "elevated-aws-permissions-revoked"
 
 
 def read_audit_entry(bucket, key, client=None):
