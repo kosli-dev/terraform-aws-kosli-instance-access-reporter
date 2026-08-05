@@ -116,6 +116,38 @@ def test_the_approved_reason_is_readable_without_digging_into_the_blob(kosli):
     assert attestation["compliant"] is True
 
 
+def test_the_requester_and_approver_are_annotated_onto_the_grant(kosli):
+    _, _, client_for = kosli
+
+    report(GRANT_ENTRY, kosli)
+
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
+    assert attestation["annotations"] == {
+        "requester": "graham@kosli.com",
+        "approver": "faye@kosli.com",
+    }
+
+
+def test_a_grant_with_no_approver_says_so_in_the_annotation(kosli):
+    # The most interesting kind of grant, so the key stays present rather than
+    # disappearing and leaving nothing to notice.
+    _, _, client_for = kosli
+
+    report(dict(GRANT_ENTRY, approver_email=None), kosli)
+
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
+    assert attestation["annotations"]["approver"] == "nobody recorded"
+
+
+def test_the_revoke_carries_no_annotations(kosli):
+    _, _, client_for = kosli
+
+    report(REVOKE_ENTRY, kosli)
+
+    attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions-revoked")
+    assert attestation["annotations"] == {}
+
+
 def test_a_self_approved_grant_is_reported_non_compliant(kosli):
     _, _, client_for = kosli
 
