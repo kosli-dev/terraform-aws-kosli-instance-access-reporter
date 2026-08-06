@@ -4,6 +4,16 @@ variable "name_prefix" {
   description = "Prefix for the names of every AWS resource this module creates. The same prefix the root module uses, and deliberately sharing no substring with the older evidence-reporter resources, so the two pipelines cannot be confused during the parallel run."
 }
 
+variable "env_name" {
+  type        = string
+  description = "The name of the AWS account this module is deployed into, for example sso. It appears in the alarm description, so a failure names the account whose CloudWatch holds the logs. That is the account running SSO, not the account an elevation was granted into - one lambda serves every instance, and which instance was affected is only known once the logs are read."
+
+  validation {
+    condition     = length(trimspace(var.env_name)) > 0
+    error_message = "env_name must name the account, or an alarm cannot say where the failure happened."
+  }
+}
+
 variable "kosli_org" {
   type        = string
   description = "The Kosli organisation to report to (the value for the CLI --org flag)."

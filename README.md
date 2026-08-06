@@ -83,6 +83,10 @@ using the same shared code.
 metric. An unattributable transcript, an unpopulated API token secret, a Kosli outage: all of them
 become a message rather than a gap in the evidence.
 
+Each alarm description names the account it fired in — "The Kosli instance access transcript
+reporter failed in `prod-us`" — because the same alarm is deployed to every instance account, and
+the notification arrives without one. That name comes from `env_name`, which is why it is required.
+
 ### Several sessions can share one trail
 
 The motivating case: someone opens a shell, runs a migration, exits, then remembers a second
@@ -99,6 +103,7 @@ separate trails automatically, and a window is not a calendar date, so 23:59 and
 module "instance_access_reporter" {
   source = "github.com/kosli-dev/terraform-aws-kosli-instance-access-reporter?ref=v0.1.0"
 
+  env_name        = "prod"
   kosli_org       = "kosli"
   kosli_flow_name = "instance-access-prod"
 
@@ -122,6 +127,12 @@ prerequisites.
 resource addresses in Terraform state, and a `moved` block only does its work in the release that
 contains it. Skipping a release that has one means the next apply destroys and recreates whatever it
 would have moved.
+
+**`v0.3.0` adds `env_name`, a required input.** Every alarm description now names the account it
+fired in, and there is no sensible default for that name, so the plan fails until the caller
+supplies it. A root module deployed per account almost always has this name already, under whatever
+it calls it; pass that straight through. Nothing is replaced — an alarm description is mutable, so
+this is an in-place update of three CloudWatch alarms.
 
 **Reaching `v0.1.0` from an untagged branch or SHA ref.** The reporters moved inside an internal
 `reporter-lambda` module, so their addresses in state all changed. `v0.1.0` carries the `moved`
@@ -194,6 +205,7 @@ mismatch appears as an `InvalidParameterValueException` at apply rather than at 
 
 | Name | Description | Default |
 | --- | --- | --- |
+| `env_name` | Name of this AWS account; appears in every alarm description | required |
 | `kosli_org` | Kosli organisation to report to | required |
 | `kosli_flow_name` | Flow holding this instance's access trails | required |
 | `kosli_api_token_secret_arn` | Secrets Manager secret holding the API token | required |

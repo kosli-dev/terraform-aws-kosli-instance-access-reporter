@@ -28,7 +28,7 @@ module "session" {
     KOSLI_FLOW_NAME = var.kosli_flow_name
   }
 
-  alarm_description = "The Kosli instance access exec session reporter failed. An ECS exec session may have gone unrecorded."
+  alarm_description = "The Kosli instance access exec session reporter failed in ${var.env_name}. An ECS exec session may have gone unrecorded."
 
   kosli_org                         = var.kosli_org
   kosli_host                        = var.kosli_host
@@ -72,7 +72,7 @@ module "transcript" {
     IDENTITY_LOOKUP_TIMEOUT_SECONDS = tostring(var.identity_lookup_timeout_seconds)
   }
 
-  alarm_description = "The Kosli instance access transcript reporter failed. An ECS exec transcript may not have reached its Kosli trail."
+  alarm_description = "The Kosli instance access transcript reporter failed in ${var.env_name}. An ECS exec transcript may not have reached its Kosli trail."
 
   kosli_org                         = var.kosli_org
   kosli_host                        = var.kosli_host
