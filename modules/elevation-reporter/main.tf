@@ -33,7 +33,7 @@ module "reporter" {
     INSTANCE_FLOWS = jsonencode(var.instance_flows)
   }
 
-  alarm_description = "The Kosli instance access elevation reporter failed. An SSO elevation may not have reached its Kosli trail, leaving a session recorded without the approval that authorised it."
+  alarm_description = "The Kosli instance access elevation reporter failed in ${var.env_name}. An SSO elevation may not have reached its Kosli trail, leaving a session recorded without the approval that authorised it."
 
   kosli_org                         = var.kosli_org
   kosli_host                        = var.kosli_host

@@ -36,6 +36,7 @@ is modified.
 module "elevation_reporter" {
   source = "github.com/kosli-dev/terraform-aws-kosli-instance-access-reporter//modules/elevation-reporter?ref=v0.1.0"
 
+  env_name   = "sso"
   kosli_org  = "kosli"
   kosli_host = "https://app.kosli.com"
 
@@ -51,6 +52,11 @@ module "elevation_reporter" {
   tags = module.tags.result
 }
 ```
+
+`env_name` names the account this lambda runs in, and appears in the alarm description so a failure
+notification says where to look. That is the SSO account, not the account an elevation was granted
+into: one lambda serves every instance, and which instance an individual failure concerns is only
+known once its logs are read.
 
 The Kosli API token secret is created by the caller with no version and populated out of band, the
 same pattern the root module uses: the token is in neither Terraform state nor the function

@@ -60,6 +60,7 @@ resource "aws_s3_bucket_notification" "ecs_exec_logs" {
 module "instance_access_reporter" {
   source = "../.."
 
+  env_name        = "infra-dev"
   kosli_org       = "kosli"
   kosli_flow_name = "instance-access-infra-dev"
 

@@ -4,6 +4,16 @@ variable "name_prefix" {
   description = "Prefix for the names of every AWS resource this module creates. Deliberately shares no substring with the older evidence-reporter resources, so the two pipelines cannot be confused during the parallel run."
 }
 
+variable "env_name" {
+  type        = string
+  description = "The name of the AWS account this module is deployed into, for example prod-us. It appears in every alarm description, so a failure names the account it happened in and an investigation can start from the notification alone. There is no default: an alarm that cannot say where it fired is the thing this variable exists to prevent."
+
+  validation {
+    condition     = length(trimspace(var.env_name)) > 0
+    error_message = "env_name must name the account, or an alarm cannot say where the failure happened."
+  }
+}
+
 variable "kosli_org" {
   type        = string
   description = "The Kosli organisation to report to (the value for the CLI --org flag)."
