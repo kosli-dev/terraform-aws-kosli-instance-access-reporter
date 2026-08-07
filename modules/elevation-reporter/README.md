@@ -99,3 +99,24 @@ is relying on two versions agreeing. Setting it explicitly in both places is how
 
 `instance_flows` maps AWS account id to Kosli flow. An elevation into an account that is **not** in
 the map is logged and skipped — no trail, no attestation, no alarm.
+
+## Automated revocations (temporary)
+
+When a scheduled revocation fails, nothing is written to S3 and no
+`elevated-aws-permissions-revoked` attestation is made — which is right: no evidence is better than
+evidence of something that did not happen. The elevator's nightly sweep then finds the elevation
+still standing and tidies it up, and *that* writes an object, with `reason` set to
+`automated revocation`.
+
+Those objects name nobody. `requester_email`, `approver_email` and both Slack ids are all `NA`, so
+there is no person to attribute the revocation to and no `<user>-<start>` trail to find. Parsing one
+raises `MalformedAuditEntryError`, which alarms.
+
+So an entry whose `operation_type` is `revoke` and whose `reason` is `automated revocation` is
+logged and skipped, before it is parsed. The alarm was firing nightly for a fault outside this
+repository that we could take no action on.
+
+**This is a workaround.** The sweep knows whose access it is withdrawing, so it should be able to
+fill `requester_email` in; it has been raised with FiveXL. When they publish a fix, revert this — the
+skip, `elevation.AUTOMATED_REVOCATION`, and `is_automated_revocation` — and let the revocation be
+attested like any other.

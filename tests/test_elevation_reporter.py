@@ -6,27 +6,41 @@ import elevation_reporter
 from kosli_access import config, elevation, runtime
 
 from .fakes import (
+    ACCOUNT_ID,
+    APPROVER_EMAIL,
+    APPROVER_SLACK_ID,
+    AUDIT_BUCKET,
+    AUTOMATED_REVOCATION_ENTRY,
     GRANT_ENTRY,
+    REQUESTER_EMAIL,
+    REQUESTER_SLACK_ID,
+    REQUESTER_TRAIL_USER,
     REVOKE_ENTRY,
+    SECONDARY_ACCOUNT_ID,
+    SSO_USER_PRINCIPAL_ID,
+    UNMAPPED_ACCOUNT_ID,
     FakeKosliClient,
     FakeS3Client,
     fake_boto3_clients,
     s3_object_created_event,
 )
 
-BUCKET = "sso-elevator-audit-7f6d93c4cf4a8a0fa6ffaddfd70817782bddd202"
+BUCKET = AUDIT_BUCKET
 KEY = "946eeb73-678c-479d-b4fc-016c67198b28.json"
 
 PROD_FLOW = "instance-access-prod"
+
+#: The trail the grant opens, and the one its revoke has to find.
+TRAIL = f"{REQUESTER_TRAIL_USER}-2026-08-03-1238"
 
 SETTINGS = config.ElevationSettings(
     kosli_binary="/opt/kosli",
     kosli_host="https://app.kosli.com",
     kosli_org="kosli",
-    kosli_api_token_secret_arn="arn:aws:secretsmanager:eu-north-1:933561452000:secret:x",
+    kosli_api_token_secret_arn="arn:aws:secretsmanager:eu-north-1:555561552005:secret:x",
     instance_flows={
-        "358426185766": PROD_FLOW,
-        "545238427212": "instance-access-prod-us",
+        ACCOUNT_ID: PROD_FLOW,
+        SECONDARY_ACCOUNT_ID: "instance-access-prod-us",
     },
     trail_window=timedelta(hours=3),
     trail_list_page_limit=30,
@@ -68,8 +82,8 @@ def test_a_grant_begins_the_trail_it_will_share_with_the_session(kosli):
     # is the half that opens the trail. The session reporters join it when the
     # shell is opened.
     assert result["trail_created"] is True
-    assert result["trail"] == "graham-2026-08-03-1238"
-    assert client.begun[0]["description"] == "Instance access by graham@kosli.com"
+    assert result["trail"] == TRAIL
+    assert client.begun[0]["description"] == f"Instance access by {REQUESTER_EMAIL}"
 
 
 def test_the_grant_goes_to_the_flow_for_the_account_it_was_granted_into(kosli):
@@ -94,11 +108,9 @@ def test_the_whole_audit_entry_is_forwarded(kosli):
     assert user_data["audit_entry"]["request_id"] == (
         "1a998d38-075c-498a-94cf-ee6f5c5bcad5"
     )
-    assert user_data["audit_entry"]["requester_slack_id"] == "U090MLZ8BPE"
-    assert user_data["audit_entry"]["approver_slack_id"] == "U05KR8NS07Q"
-    assert user_data["audit_entry"]["sso_user_principal_id"] == (
-        "602c699c-e0a1-7077-7186-601dd22c8864"
-    )
+    assert user_data["audit_entry"]["requester_slack_id"] == REQUESTER_SLACK_ID
+    assert user_data["audit_entry"]["approver_slack_id"] == APPROVER_SLACK_ID
+    assert user_data["audit_entry"]["sso_user_principal_id"] == SSO_USER_PRINCIPAL_ID
 
 
 def test_the_approved_reason_is_readable_without_digging_into_the_blob(kosli):
@@ -108,10 +120,11 @@ def test_the_approved_reason_is_readable_without_digging_into_the_blob(kosli):
 
     attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
     assert attestation["user_data"]["elevation_reason"] == (
-        "Setup SCIM for Sunlife in prod, as part of their testing"
+        "Setup SCIM for customer in prod, as part of their testing"
     )
     assert attestation["description"] == (
-        "Elevation to AdministratorAccess in 358426185766, approved by faye@kosli.com"
+        f"Elevation to AdministratorAccess in {ACCOUNT_ID}, "
+        f"approved by {APPROVER_EMAIL}"
     )
     assert attestation["compliant"] is True
 
@@ -123,8 +136,8 @@ def test_the_requester_and_approver_are_annotated_onto_the_grant(kosli):
 
     attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
     assert attestation["annotations"] == {
-        "requester": "graham@kosli.com",
-        "approver": "faye@kosli.com",
+        "requester": REQUESTER_EMAIL,
+        "approver": APPROVER_EMAIL,
     }
 
 
@@ -151,7 +164,7 @@ def test_the_revoke_carries_no_annotations(kosli):
 def test_a_self_approved_grant_is_reported_non_compliant(kosli):
     _, _, client_for = kosli
 
-    report(dict(GRANT_ENTRY, approver_email="graham@kosli.com"), kosli)
+    report(dict(GRANT_ENTRY, approver_email=REQUESTER_EMAIL), kosli)
 
     attestation = client_for(PROD_FLOW).attestation("elevated-aws-permissions")
     assert attestation["compliant"] is False
@@ -166,7 +179,7 @@ def test_the_revoke_joins_the_trail_the_grant_opened(kosli):
 
     client = client_for(PROD_FLOW)
     assert result["trail_created"] is False
-    assert result["trail"] == "graham-2026-08-03-1238"
+    assert result["trail"] == TRAIL
     assert len(client.begun) == 1
     assert client.attestation_names() == [
         "elevated-aws-permissions",
@@ -190,7 +203,7 @@ def test_a_revoke_after_a_long_elevation_still_finds_its_trail(kosli):
     result = report(long_revoke, kosli, key="revoke.json")
 
     assert result["trail_created"] is False
-    assert result["trail"] == "graham-2026-08-03-1238"
+    assert result["trail"] == TRAIL
     assert len(client_for(PROD_FLOW).begun) == 1
 
 
@@ -206,12 +219,25 @@ def test_a_scheduled_revocation_is_not_reported_as_a_reason(kosli):
     assert "elevation_reason" not in user_data
 
 
+def test_the_sweeps_tidy_up_of_a_failed_revocation_is_skipped(kosli):
+    # The nightly sweep names nobody, so there is nothing to attribute and no
+    # trail to find. Skipping keeps somebody else's bug from alarming nightly
+    # on a fault we cannot act on. Temporary - see elevation.AUTOMATED_REVOCATION.
+    clients, _, _ = kosli
+
+    result = report(AUTOMATED_REVOCATION_ENTRY, kosli)
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "automated revocation"
+    assert clients == {}
+
+
 def test_an_elevation_into_an_unmapped_account_is_skipped(kosli):
     # accounts in the elevator config but that are not Kosli
     # instances, so there is no trail to attach to, are skipped
     clients, _, _ = kosli
 
-    result = report(dict(GRANT_ENTRY, account_id="628389144512"), kosli)
+    result = report(dict(GRANT_ENTRY, account_id=UNMAPPED_ACCOUNT_ID), kosli)
 
     assert result["status"] == "skipped"
     assert clients == {}

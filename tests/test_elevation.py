@@ -4,7 +4,15 @@ import pytest
 
 from kosli_access import elevation
 
-from .fakes import GRANT_ENTRY, REVOKE_ENTRY
+from .fakes import (
+    ACCOUNT_ID,
+    APPROVER_EMAIL,
+    AUTOMATED_REVOCATION_ENTRY,
+    GRANT_ENTRY,
+    REQUESTER_EMAIL,
+    REQUESTER_TRAIL_USER,
+    REVOKE_ENTRY,
+)
 
 WINDOW = timedelta(hours=3)
 
@@ -14,18 +22,18 @@ def test_a_grant_is_parsed_from_the_real_entry():
 
     assert entry.is_grant
     assert not entry.is_revoke
-    assert entry.requester_email == "graham@kosli.com"
-    assert entry.approver_email == "faye@kosli.com"
-    assert entry.account_id == "358426185766"
+    assert entry.requester_email == REQUESTER_EMAIL
+    assert entry.approver_email == APPROVER_EMAIL
+    assert entry.account_id == ACCOUNT_ID
     assert entry.role_name == "AdministratorAccess"
     assert entry.permission_duration == timedelta(minutes=90)
 
 
 def test_the_trail_user_matches_what_the_session_reporters_derive():
-    # They get "graham" from the CloudTrail role session name; this gets it
+    # They get the user from the CloudTrail role session name; this gets it
     # from requester_email. If these ever disagree the two halves of a trail
     # land in different places, so the agreement is the whole contract.
-    assert elevation.from_object(GRANT_ENTRY).user == "graham"
+    assert elevation.from_object(GRANT_ENTRY).user == REQUESTER_TRAIL_USER
 
 
 def test_the_entry_time_is_read_from_the_python_style_timestamp():
@@ -63,7 +71,7 @@ def test_a_grant_carries_the_human_reason():
     entry = elevation.from_object(GRANT_ENTRY)
 
     assert entry.elevation_reason == (
-        "Setup SCIM for Sunlife in prod, as part of their testing"
+        "Setup SCIM for customer in prod, as part of their testing"
     )
 
 
@@ -113,7 +121,7 @@ def test_the_elevator_writes_na_rather_than_omitting_fields():
 
 
 def test_self_approval_is_visible():
-    payload = dict(GRANT_ENTRY, approver_email="GRAHAM@kosli.com")
+    payload = dict(GRANT_ENTRY, approver_email=REQUESTER_EMAIL.upper())
 
     assert elevation.from_object(payload).self_approved
 
@@ -134,6 +142,30 @@ def test_a_grant_with_no_approver_is_not_treated_as_self_approved():
 def test_an_unknown_operation_type_is_fatal(operation):
     with pytest.raises(elevation.MalformedAuditEntryError):
         elevation.from_object(dict(GRANT_ENTRY, operation_type=operation))
+
+
+def test_the_sweeps_tidy_up_is_recognised_before_it_is_parsed():
+    # It cannot be parsed at all - it names no requester - so the shape has to
+    # be recognisable from the raw object.
+    assert elevation.is_automated_revocation(AUTOMATED_REVOCATION_ENTRY)
+
+    with pytest.raises(elevation.MalformedAuditEntryError):
+        elevation.from_object(AUTOMATED_REVOCATION_ENTRY)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        GRANT_ENTRY,
+        REVOKE_ENTRY,
+        # A grant would have to be reported however it was worded; only a
+        # revoke is the sweep's.
+        dict(GRANT_ENTRY, reason="automated revocation"),
+        ["not", "an", "entry"],
+    ],
+)
+def test_everything_else_is_still_reported(payload):
+    assert not elevation.is_automated_revocation(payload)
 
 
 def test_an_entry_without_a_requester_cannot_be_attributed():
