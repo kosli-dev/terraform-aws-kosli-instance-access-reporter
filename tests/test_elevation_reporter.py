@@ -6,6 +6,7 @@ import elevation_reporter
 from kosli_access import config, elevation, runtime
 
 from .fakes import (
+    AUTOMATED_REVOCATION_ENTRY,
     GRANT_ENTRY,
     REVOKE_ENTRY,
     FakeKosliClient,
@@ -204,6 +205,19 @@ def test_a_scheduled_revocation_is_not_reported_as_a_reason(kosli):
     assert user_data["revocation_trigger"] == "scheduled_revocation"
     assert user_data["scheduled"] is True
     assert "elevation_reason" not in user_data
+
+
+def test_the_sweeps_tidy_up_of_a_failed_revocation_is_skipped(kosli):
+    # The nightly sweep names nobody, so there is nothing to attribute and no
+    # trail to find. Skipping keeps somebody else's bug from alarming nightly
+    # on a fault we cannot act on. Temporary - see elevation.AUTOMATED_REVOCATION.
+    clients, _, _ = kosli
+
+    result = report(AUTOMATED_REVOCATION_ENTRY, kosli)
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "automated revocation"
+    assert clients == {}
 
 
 def test_an_elevation_into_an_unmapped_account_is_skipped(kosli):

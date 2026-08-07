@@ -4,7 +4,7 @@ import pytest
 
 from kosli_access import elevation
 
-from .fakes import GRANT_ENTRY, REVOKE_ENTRY
+from .fakes import AUTOMATED_REVOCATION_ENTRY, GRANT_ENTRY, REVOKE_ENTRY
 
 WINDOW = timedelta(hours=3)
 
@@ -134,6 +134,30 @@ def test_a_grant_with_no_approver_is_not_treated_as_self_approved():
 def test_an_unknown_operation_type_is_fatal(operation):
     with pytest.raises(elevation.MalformedAuditEntryError):
         elevation.from_object(dict(GRANT_ENTRY, operation_type=operation))
+
+
+def test_the_sweeps_tidy_up_is_recognised_before_it_is_parsed():
+    # It cannot be parsed at all - it names no requester - so the shape has to
+    # be recognisable from the raw object.
+    assert elevation.is_automated_revocation(AUTOMATED_REVOCATION_ENTRY)
+
+    with pytest.raises(elevation.MalformedAuditEntryError):
+        elevation.from_object(AUTOMATED_REVOCATION_ENTRY)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        GRANT_ENTRY,
+        REVOKE_ENTRY,
+        # A grant would have to be reported however it was worded; only a
+        # revoke is the sweep's.
+        dict(GRANT_ENTRY, reason="automated revocation"),
+        ["not", "an", "entry"],
+    ],
+)
+def test_everything_else_is_still_reported(payload):
+    assert not elevation.is_automated_revocation(payload)
 
 
 def test_an_entry_without_a_requester_cannot_be_attributed():

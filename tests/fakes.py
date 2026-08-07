@@ -247,6 +247,37 @@ REVOKE_ENTRY = {
 }
 
 
+#: What the elevator's nightly sweep writes when it tidies up an elevation
+#: whose scheduled revocation failed. Copied from a real entry, with the two
+#: ids replaced by fresh uuids - the principal id in the original belongs to a
+#: real person and this repository is public. Everything that would name a
+#: person - both emails, both Slack ids - is "NA", and so is the duration, so
+#: there is nothing here to attribute or to find a trail with.
+AUTOMATED_REVOCATION_ENTRY = {
+    "reason": "automated revocation",
+    "operation_type": "revoke",
+    "permission_duration": "NA",
+    "sso_user_principal_id": "5555fa26-23e2-4da2-8392-edff7481f9de",
+    "audit_entry_type": "account",
+    "role_name": "AdministratorAccess",
+    "account_id": "358426185766",
+    "requester_slack_id": "NA",
+    "requester_email": "NA",
+    "request_id": "14c924a1-1ea2-4154-886f-a449c5cf67fe",
+    "approver_slack_id": "NA",
+    "approver_email": "NA",
+    "group_name": "NA",
+    "group_id": "NA",
+    "group_membership_id": "NA",
+    "secondary_domain_was_used": False,
+    "sync_operation": "NA",
+    "matched_attributes": "NA",
+    "sso_user_email": "NA",
+    "time": "2026-08-06 23:00:08.954258+00:00",
+    "timestamp": 1786057208954,
+}
+
+
 #: The command string captured verbatim from a real infra-dev session, long
 #: runs of spaces and all. They come from the shell line continuations in
 #: enter_aws.sh.

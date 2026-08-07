@@ -36,21 +36,24 @@ REVOKE_ATTESTATION = "elevated-aws-permissions-revoked"
 NOBODY_RECORDED = "nobody recorded"
 
 
-def read_audit_entry(bucket, key, client=None):
-    """Return the elevator's audit entry stored at ``bucket``/``key``.
+def read_audit_object(bucket, key, client=None):
+    """Return the elevator's audit object stored at ``bucket``/``key``, as JSON.
 
     The object name is a UUID with no meaning, so unlike the transcript path
     there is nothing to parse out of the key.
+
+    Handed back unparsed, rather than as an :class:`~kosli_access.elevation.AuditEntry`,
+    because one shape of object has to be recognised before it can be parsed —
+    see :data:`~kosli_access.elevation.AUTOMATED_REVOCATION`.
     """
     client = client or runtime.client("s3")
     body = client.get_object(Bucket=bucket, Key=key)["Body"].read()
     try:
-        payload = json.loads(body)
+        return json.loads(body)
     except ValueError as exc:
         raise elevation.MalformedAuditEntryError(
             f"s3://{bucket}/{key} is not valid JSON"
         ) from exc
-    return elevation.from_object(payload)
 
 
 def _grant_user_data(entry, bucket, key):
@@ -126,7 +129,29 @@ def lambda_handler(event, context):  # noqa: ARG001 - lambda signature
     detail = (event or {}).get("detail") or {}
     bucket = (detail.get("bucket") or {}).get("name")
     key = (detail.get("object") or {}).get("key")
-    entry = read_audit_entry(bucket, key)
+    payload = read_audit_object(bucket, key)
+
+    # The elevator's nightly sweep tidies up elevations whose scheduled
+    # revocation failed, and the entry it writes names nobody at all. There is
+    # no person to attribute it to and no trail to find, so it is logged and
+    # skipped rather than raising - alarming on it would page us about somebody
+    # else's bug, nightly, with nothing we could do in response. Temporary:
+    # remove once FiveXL fill in requester_email. See elevation.AUTOMATED_REVOCATION.
+    if elevation.is_automated_revocation(payload):
+        logger.info(
+            "s3://%s/%s is an automated revocation, which names no requester, "
+            "so there is nothing to attribute it to; skipping",
+            bucket,
+            key,
+        )
+        return {
+            "status": "skipped",
+            "reason": "automated revocation",
+            "source_bucket": bucket,
+            "source_key": key,
+        }
+
+    entry = elevation.from_object(payload)
 
     logger.info(
         "Elevator %s for %s into account %s (%s)",

@@ -33,6 +33,15 @@ _NOT_APPLICABLE = {"NA", "N/A", ""}
 #: than being handed back. Not a human justification.
 SCHEDULED_REVOCATION = "scheduled_revocation"
 
+#: The reason the elevator's nightly sweep records when it tidies up an
+#: elevation whose scheduled revocation failed. These entries name nobody -
+#: requester_email, approver_email and both Slack ids are all "NA" - so there
+#: is no person to attribute the revocation to and no way to find the trail it
+#: belongs to. Raised with FiveXL: the sweep knows whose access it is
+#: withdrawing, so it should be able to fill the field in. Remove this and the
+#: skip it drives in the elevation reporter once they publish a fix.
+AUTOMATED_REVOCATION = "automated revocation"
+
 
 class MalformedAuditEntryError(ValueError):
     """The S3 object is not a usable elevator audit entry."""
@@ -157,6 +166,21 @@ class AuditEntry:
         if self.is_revoke and self.permission_duration is not None:
             return base_window + self.permission_duration
         return base_window
+
+
+def is_automated_revocation(payload):
+    """True when this object is the sweep's tidy-up of a failed revocation.
+
+    Asked of the raw object, before :func:`from_object`, because such an entry
+    cannot be parsed into an :class:`AuditEntry` at all: it carries no
+    requester_email. See :data:`AUTOMATED_REVOCATION`.
+    """
+    if not isinstance(payload, dict):
+        return False
+    return (
+        _clean(payload.get("operation_type")) == REVOKE
+        and _clean(payload.get("reason")) == AUTOMATED_REVOCATION
+    )
 
 
 def from_object(payload):
