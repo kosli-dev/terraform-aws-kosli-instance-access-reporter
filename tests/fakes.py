@@ -188,8 +188,33 @@ class _Body:
         return self._body
 
 
+# The identities the elevation fixtures are built from. All placeholders: this
+# repository is public, and nothing here depends on the real values - the tests
+# assert on the shape of the evidence, not on who appears in it. Named rather
+# than inlined so a grant and its revoke cannot drift apart, which is a real
+# failure mode: the two are paired by the trail name derived from the
+# requester's email, so scrubbing one side alone silently breaks the pair.
+REQUESTER_EMAIL = "requester@example.com"
+APPROVER_EMAIL = "approver@example.com"
+REQUESTER_SLACK_ID = "U000REQUEST"
+APPROVER_SLACK_ID = "U000APPROVE"
+SSO_USER_PRINCIPAL_ID = "bf433fa6-06c3-4372-82c1-0b4fa7fc149e"
+
+#: The trail name component derived from :data:`REQUESTER_EMAIL`, by the same
+#: rule the reporters use - the local part, before the "@".
+REQUESTER_TRAIL_USER = REQUESTER_EMAIL.split("@", 1)[0]
+
+#: An account with an instance flow configured, and one without. The elevator
+#: covers accounts that are not Kosli instances, and those are skipped.
+ACCOUNT_ID = "958426185778"
+SECONDARY_ACCOUNT_ID = "958426185789"
+UNMAPPED_ACCOUNT_ID = "958426185790"
+
+AUDIT_BUCKET = "sso-elevator-audit-example"
+
+
 def s3_object_created_event(
-    bucket="sso-elevator-audit-7f6d93c4cf4a8a0fa6ffaddfd70817782bddd202",
+    bucket=AUDIT_BUCKET,
     key="946eeb73-678c-479d-b4fc-016c67198b28.json",
 ):
     """The EventBridge envelope for an elevator audit object landing in S3."""
@@ -200,21 +225,23 @@ def s3_object_created_event(
     }
 
 
-#: A grant, copied from the entry the elevator wrote when Graham requested
-#: access to prod on 2026-08-03 and Faye approved it.
+#: A grant, copied from a real entry the elevator wrote on 2026-08-03. Every
+#: value that named a person, an account or a customer has been replaced with a
+#: placeholder: this repository is public, and the shape is what the tests care
+#: about, not the identities.
 GRANT_ENTRY = {
-    "reason": "Setup SCIM for Sunlife in prod, as part of their testing",
+    "reason": "Setup SCIM for customer in prod, as part of their testing",
     "operation_type": "grant",
     "permission_duration": "5400",
-    "sso_user_principal_id": "602c699c-e0a1-7077-7186-601dd22c8864",
+    "sso_user_principal_id": SSO_USER_PRINCIPAL_ID,
     "audit_entry_type": "account",
     "role_name": "AdministratorAccess",
-    "account_id": "358426185766",
-    "requester_slack_id": "U090MLZ8BPE",
-    "requester_email": "graham@kosli.com",
+    "account_id": ACCOUNT_ID,
+    "requester_slack_id": REQUESTER_SLACK_ID,
+    "requester_email": REQUESTER_EMAIL,
     "request_id": "1a998d38-075c-498a-94cf-ee6f5c5bcad5",
-    "approver_slack_id": "U05KR8NS07Q",
-    "approver_email": "faye@kosli.com",
+    "approver_slack_id": APPROVER_SLACK_ID,
+    "approver_email": APPROVER_EMAIL,
     "group_name": "NA",
     "group_id": "NA",
     "group_membership_id": "NA",
@@ -229,15 +256,18 @@ REVOKE_ENTRY = {
     "reason": "scheduled_revocation",
     "operation_type": "revoke",
     "permission_duration": "5400",
-    "sso_user_principal_id": "602c699c-e0a1-7077-7186-601dd22c8864",
+    # The same person as the grant, in every field that identifies one. They
+    # are one elevation; only request_id differs, because the revoke is a
+    # separate request.
+    "sso_user_principal_id": SSO_USER_PRINCIPAL_ID,
     "audit_entry_type": "account",
     "role_name": "AdministratorAccess",
-    "account_id": "358426185766",
-    "requester_slack_id": "U090MLZ8BPE",
-    "requester_email": "graham@kosli.com",
+    "account_id": ACCOUNT_ID,
+    "requester_slack_id": REQUESTER_SLACK_ID,
+    "requester_email": REQUESTER_EMAIL,
     "request_id": "0f2054ec-c3b9-4c8a-a0f6-bf7fdc5a9b68",
-    "approver_slack_id": "U05KR8NS07Q",
-    "approver_email": "faye@kosli.com",
+    "approver_slack_id": APPROVER_SLACK_ID,
+    "approver_email": APPROVER_EMAIL,
     "group_name": "NA",
     "group_id": "NA",
     "group_membership_id": "NA",
@@ -251,8 +281,9 @@ REVOKE_ENTRY = {
 #: whose scheduled revocation failed. Copied from a real entry, with the two
 #: ids replaced by fresh uuids - the principal id in the original belongs to a
 #: real person and this repository is public. Everything that would name a
-#: person - both emails, both Slack ids - is "NA", and so is the duration, so
-#: there is nothing here to attribute or to find a trail with.
+#: person - both emails, both Slack ids - is "NA" in the original too, and so
+#: is the duration, so there is nothing here to attribute or to find a trail
+#: with.
 AUTOMATED_REVOCATION_ENTRY = {
     "reason": "automated revocation",
     "operation_type": "revoke",
@@ -260,7 +291,7 @@ AUTOMATED_REVOCATION_ENTRY = {
     "sso_user_principal_id": "5555fa26-23e2-4da2-8392-edff7481f9de",
     "audit_entry_type": "account",
     "role_name": "AdministratorAccess",
-    "account_id": "358426185766",
+    "account_id": ACCOUNT_ID,
     "requester_slack_id": "NA",
     "requester_email": "NA",
     "request_id": "14c924a1-1ea2-4154-886f-a449c5cf67fe",
